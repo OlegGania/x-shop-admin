@@ -37,3 +37,11 @@ export async function createProduct(product: CreateProductDto): Promise<void> {
     throw new Error(error.message)
   }
 }
+
+export async function deleteProduct(productId: number): Promise<void> {
+  const { error } = await supabase.from('products').delete().eq('id', productId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}

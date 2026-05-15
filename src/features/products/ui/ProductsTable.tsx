@@ -1,3 +1,5 @@
+import { toast } from 'sonner'
+import { useDeleteProduct } from '../hooks/useDeleteProduct'
 import type { Product } from '../model/product.types'
 
 type ProductsTableProps = {
@@ -5,10 +7,30 @@ type ProductsTableProps = {
 }
 
 function formatPrice(price: number) {
-  return `${price.toFixed(2)} zł`
+  return `$${price.toFixed(2)}`
 }
 
 export function ProductsTable({ products }: ProductsTableProps) {
+  const deleteProductMutation = useDeleteProduct()
+
+  async function handleDeleteProduct(product: Product) {
+    const isConfirmed = window.confirm(`Delete product "${product.title}"?`)
+
+    if (!isConfirmed) {
+      return
+    }
+
+    try {
+      await deleteProductMutation.mutateAsync(product.id)
+      toast.success('Product deleted successfully')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to delete product'
+
+      toast.error(message)
+    }
+  }
+
   if (products.length === 0) {
     return (
       <div className='rounded-md border p-6'>
@@ -72,8 +94,10 @@ export function ProductsTable({ products }: ProductsTableProps) {
                   <button
                     type='button'
                     className='rounded-md border px-3 py-1 text-sm hover:bg-muted'
+                    disabled={deleteProductMutation.isPending}
+                    onClick={() => handleDeleteProduct(product)}
                   >
-                    Delete
+                    {deleteProductMutation.isPending ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               </td>
