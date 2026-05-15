@@ -4,8 +4,12 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { useProducts } from './hooks/useProducts'
+import { ProductsTable } from './ui/ProductsTable'
 
 export function Products() {
+  const { data: products = [], isLoading, isError, error } = useProducts()
+
   return (
     <>
       <Header fixed>
@@ -23,11 +27,15 @@ export function Products() {
           </p>
         </div>
 
-        <div className='rounded-md border p-6'>
-          <p className='text-sm text-muted-foreground'>
-            Products table will be here.
+        {isLoading && <p>Loading products...</p>}
+
+        {isError && (
+          <p className='text-red-500'>
+            Error loading products: {error.message}
           </p>
-        </div>
+        )}
+
+        {!isLoading && !isError && <ProductsTable products={products} />}
       </Main>
     </>
   )
