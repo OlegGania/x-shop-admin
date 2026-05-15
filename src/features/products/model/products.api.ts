@@ -13,3 +13,27 @@ export async function getProducts(): Promise<Product[]> {
 
   return data ?? []
 }
+
+export type CreateProductDto = {
+  title: string
+  price: number
+  stock: number
+  brand: string
+  category: string
+  description: string
+  thumbnail: string
+  rating: number
+}
+
+export async function createProduct(product: CreateProductDto): Promise<void> {
+  const payload = {
+    ...product,
+    images: [product.thumbnail],
+  }
+
+  const { error } = await supabase.from('products').insert(payload)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
