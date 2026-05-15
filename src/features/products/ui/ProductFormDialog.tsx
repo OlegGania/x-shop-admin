@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useCreateProduct } from '../hooks/useCreateProduct'
+import { useUpdateProduct } from '../hooks/useUpdateProduct'
+import type { Product } from '../model/product.types'
 
 const productFormSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters.'),
@@ -46,35 +48,77 @@ const defaultValues: ProductFormValues = {
   rating: 0,
 }
 
+function getProductFormValues(product: Product): ProductFormValues {
+  return {
+    title: product.title,
+    price: product.price,
+    stock: product.stock ?? 0,
+    brand: product.brand ?? '',
+    category: product.category ?? '',
+    description: product.description ?? '',
+    thumbnail: product.thumbnail ?? '',
+    rating: product.rating ?? 0,
+  }
+}
+
 type ProductFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  product?: Product | null
 }
 
 export function ProductFormDialog({
   open,
   onOpenChange,
+  product,
 }: ProductFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const createProductMutation = useCreateProduct()
+  const updateProductMutation = useUpdateProduct()
+
+  const isEditMode = Boolean(product)
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues,
   })
 
+  useEffect(() => {
+    if (!open) {
+      form.reset(defaultValues)
+      return
+    }
+
+    if (product) {
+      form.reset(getProductFormValues(product))
+      return
+    }
+
+    form.reset(defaultValues)
+  }, [form, open, product])
+
   async function onSubmit(values: ProductFormValues) {
     try {
       setIsSubmitting(true)
 
-      await createProductMutation.mutateAsync(values)
+      if (product) {
+        await updateProductMutation.mutateAsync({
+          productId: product.id,
+          product: values,
+        })
 
-      toast.success('Product created successfully')
+        toast.success('Product updated successfully')
+      } else {
+        await createProductMutation.mutateAsync(values)
+
+        toast.success('Product created successfully')
+      }
+
       form.reset(defaultValues)
       onOpenChange(false)
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to create product'
+        error instanceof Error ? error.message : 'Failed to save product'
 
       toast.error(message)
     } finally {
@@ -86,9 +130,13 @@ export function ProductFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-w-2xl'>
         <DialogHeader>
-          <DialogTitle>Add product</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? 'Edit product' : 'Add product'}
+          </DialogTitle>
           <DialogDescription>
-            Create a new product in X-Shop catalog.
+            {isEditMode
+              ? 'Update product details in X-Shop catalog.'
+              : 'Create a new product in X-Shop catalog.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +162,7 @@ export function ProductFormDialog({
                 name='price'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price</FormLabel>
+                    <FormLabel>Price ($)</FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -245,7 +293,13 @@ export function ProductFormDialog({
               </Button>
 
               <Button type='submit' disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create product'}
+                {isSubmitting
+                  ? isEditMode
+                    ? 'Saving...'
+                    : 'Creating...'
+                  : isEditMode
+                    ? 'Save changes'
+                    : 'Create product'}
               </Button>
             </div>
           </form>

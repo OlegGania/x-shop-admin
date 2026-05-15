@@ -7,13 +7,33 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { useProducts } from './hooks/useProducts'
+import type { Product } from './model/product.types'
 import { ProductFormDialog } from './ui/ProductFormDialog'
 import { ProductsTable } from './ui/ProductsTable'
 
 export function Products() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   const { data: products = [], isLoading, isError, error } = useProducts()
+
+  function handleOpenCreateDialog() {
+    setSelectedProduct(null)
+    setIsProductDialogOpen(true)
+  }
+
+  function handleOpenEditDialog(product: Product) {
+    setSelectedProduct(product)
+    setIsProductDialogOpen(true)
+  }
+
+  function handleProductDialogOpenChange(open: boolean) {
+    setIsProductDialogOpen(open)
+
+    if (!open) {
+      setSelectedProduct(null)
+    }
+  }
 
   return (
     <>
@@ -33,9 +53,7 @@ export function Products() {
             </p>
           </div>
 
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            Add product
-          </Button>
+          <Button onClick={handleOpenCreateDialog}>Add product</Button>
         </div>
 
         {isLoading && <p>Loading products...</p>}
@@ -46,12 +64,18 @@ export function Products() {
           </p>
         )}
 
-        {!isLoading && !isError && <ProductsTable products={products} />}
+        {!isLoading && !isError && (
+          <ProductsTable
+            products={products}
+            onEditProduct={handleOpenEditDialog}
+          />
+        )}
       </Main>
 
       <ProductFormDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
+        open={isProductDialogOpen}
+        onOpenChange={handleProductDialogOpenChange}
+        product={selectedProduct}
       />
     </>
   )

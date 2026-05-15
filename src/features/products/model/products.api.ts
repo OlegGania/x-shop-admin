@@ -45,3 +45,24 @@ export async function deleteProduct(productId: number): Promise<void> {
     throw new Error(error.message)
   }
 }
+
+export type UpdateProductDto = CreateProductDto
+
+export async function updateProduct(
+  productId: number,
+  product: UpdateProductDto
+): Promise<void> {
+  const payload = {
+    ...product,
+    images: [product.thumbnail],
+  }
+
+  const { error } = await supabase
+    .from('products')
+    .update(payload)
+    .eq('id', productId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}

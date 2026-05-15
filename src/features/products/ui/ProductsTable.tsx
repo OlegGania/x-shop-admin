@@ -4,13 +4,14 @@ import type { Product } from '../model/product.types'
 
 type ProductsTableProps = {
   products: Product[]
+  onEditProduct: (product: Product) => void
 }
 
 function formatPrice(price: number) {
   return `$${price.toFixed(2)}`
 }
 
-export function ProductsTable({ products }: ProductsTableProps) {
+export function ProductsTable({ products, onEditProduct }: ProductsTableProps) {
   const deleteProductMutation = useDeleteProduct()
 
   async function handleDeleteProduct(product: Product) {
@@ -87,6 +88,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
                   <button
                     type='button'
                     className='rounded-md border px-3 py-1 text-sm hover:bg-muted'
+                    onClick={() => onEditProduct(product)}
                   >
                     Edit
                   </button>
