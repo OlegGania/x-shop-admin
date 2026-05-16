@@ -237,10 +237,6 @@ type Order = {
   created_at: string
 }
 
-type Profile = {
-  id: string
-}
-
 type DashboardStats = {
   totalRevenue: number
   totalOrders: number
