@@ -9,32 +9,30 @@ const FORM_MESSAGES = {
   passwordShort: 'Password must be at least 6 characters long.',
 } as const
 
-const navigate = vi.fn()
-const signInWithPasswordMock = vi.fn()
-const signOutMock = vi.fn()
-const singleMock = vi.fn()
+const mocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  signInWithPassword: vi.fn(),
+  signOut: vi.fn(),
+  single: vi.fn(),
+  from: vi.fn(),
+}))
 
 vi.mock('@/shared/api/supabaseClient', () => ({
   supabase: {
     auth: {
-      signInWithPassword: signInWithPasswordMock,
-      signOut: signOutMock,
+      signInWithPassword: mocks.signInWithPassword,
+      signOut: mocks.signOut,
     },
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: singleMock,
-        })),
-      })),
-    })),
+    from: mocks.from,
   },
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+
   return {
     ...actual,
-    useNavigate: () => navigate,
+    useNavigate: () => mocks.navigate,
     Link: ({
       children,
       to,
@@ -52,6 +50,44 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
+function mockAdminLoginSuccess() {
+  mocks.signInWithPassword.mockResolvedValue({
+    data: {
+      user: {
+        id: 'admin-user-id',
+        email: 'admin@gmail.com',
+      },
+    },
+    error: null,
+  })
+
+  mocks.single.mockResolvedValue({
+    data: {
+      role: 'admin',
+    },
+    error: null,
+  })
+}
+
+function mockCustomerLoginSuccess() {
+  mocks.signInWithPassword.mockResolvedValue({
+    data: {
+      user: {
+        id: 'customer-user-id',
+        email: 'customer@gmail.com',
+      },
+    },
+    error: null,
+  })
+
+  mocks.single.mockResolvedValue({
+    data: {
+      role: 'customer',
+    },
+    error: null,
+  })
+}
+
 describe('UserAuthForm', () => {
   describe('Rendering without redirectTo', () => {
     let screen: RenderResult
@@ -63,22 +99,15 @@ describe('UserAuthForm', () => {
     beforeEach(async () => {
       vi.clearAllMocks()
 
-      signInWithPasswordMock.mockResolvedValue({
-        data: {
-          user: {
-            id: 'admin-user-id',
-            email: 'admin@gmail.com',
-          },
-        },
-        error: null,
+      mocks.from.mockReturnValue({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: mocks.single,
+          })),
+        })),
       })
 
-      singleMock.mockResolvedValue({
-        data: {
-          role: 'admin',
-        },
-        error: null,
-      })
+      mockAdminLoginSuccess()
 
       screen = await render(<UserAuthForm />)
       emailInput = screen.getByRole('textbox', { name: /^Email$/i })
@@ -100,6 +129,7 @@ describe('UserAuthForm', () => {
       await expect
         .element(screen.getByText(FORM_MESSAGES.emailEmpty))
         .toBeInTheDocument()
+
       await expect
         .element(screen.getByText(FORM_MESSAGES.passwordEmpty))
         .toBeInTheDocument()
@@ -112,14 +142,17 @@ describe('UserAuthForm', () => {
       await userEvent.click(signInButton)
 
       await vi.waitFor(() =>
-        expect(signInWithPasswordMock).toHaveBeenCalledWith({
+        expect(mocks.signInWithPassword).toHaveBeenCalledWith({
           email: 'admin@gmail.com',
           password: '123456',
         })
       )
 
       await vi.waitFor(() =>
-        expect(navigate).toHaveBeenCalledWith({ to: '/', replace: true })
+        expect(mocks.navigate).toHaveBeenCalledWith({
+          to: '/',
+          replace: true,
+        })
       )
     })
   })
@@ -127,22 +160,15 @@ describe('UserAuthForm', () => {
   it('navigates to redirectTo when provided', async () => {
     vi.clearAllMocks()
 
-    signInWithPasswordMock.mockResolvedValue({
-      data: {
-        user: {
-          id: 'admin-user-id',
-          email: 'admin@gmail.com',
-        },
-      },
-      error: null,
+    mocks.from.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: mocks.single,
+        })),
+      })),
     })
 
-    singleMock.mockResolvedValue({
-      data: {
-        role: 'admin',
-      },
-      error: null,
-    })
+    mockAdminLoginSuccess()
 
     const { getByRole, getByLabelText } = await render(
       <UserAuthForm redirectTo='/settings' />
@@ -157,7 +183,7 @@ describe('UserAuthForm', () => {
     await userEvent.click(getByRole('button', { name: /Sign in/i }))
 
     await vi.waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
+      expect(mocks.navigate).toHaveBeenCalledWith({
         to: '/settings',
         replace: true,
       })
@@ -167,22 +193,15 @@ describe('UserAuthForm', () => {
   it('signs out and does not navigate when user is not admin', async () => {
     vi.clearAllMocks()
 
-    signInWithPasswordMock.mockResolvedValue({
-      data: {
-        user: {
-          id: 'customer-user-id',
-          email: 'customer@gmail.com',
-        },
-      },
-      error: null,
+    mocks.from.mockReturnValue({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: mocks.single,
+        })),
+      })),
     })
 
-    singleMock.mockResolvedValue({
-      data: {
-        role: 'customer',
-      },
-      error: null,
-    })
+    mockCustomerLoginSuccess()
 
     const { getByRole, getByLabelText } = await render(<UserAuthForm />)
 
@@ -194,7 +213,7 @@ describe('UserAuthForm', () => {
 
     await userEvent.click(getByRole('button', { name: /Sign in/i }))
 
-    await vi.waitFor(() => expect(signOutMock).toHaveBeenCalledOnce())
-    expect(navigate).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce())
+    expect(mocks.navigate).not.toHaveBeenCalled()
   })
 })
