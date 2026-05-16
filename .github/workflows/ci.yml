@@ -13,6 +13,10 @@ jobs:
   install-lint-build:
     runs-on: ubuntu-latest
 
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,9 +34,6 @@ jobs:
 
       - name: Lint the code
         run: pnpm lint
-
-      # - name: Analyze unused files and dependencies
-      #   run: pnpm knip
 
       - name: Run Prettier check
         run: pnpm format:check
