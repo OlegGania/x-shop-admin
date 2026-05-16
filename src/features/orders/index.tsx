@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/shared/api/supabaseClient'
+import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,16 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+
+type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled'
+
+const orderStatuses: OrderStatus[] = [
+  'pending',
+  'paid',
+  'shipped',
+  'completed',
+  'cancelled',
+]
 
 type OrderItem = {
   id: number
@@ -44,7 +55,7 @@ type Order = {
   discount: number | null
   shipping: number | null
   total: number | null
-  status: string | null
+  status: OrderStatus | null
   created_at: string
   profile?: Profile | null
 }
@@ -91,6 +102,37 @@ async function getOrders() {
   })) as Order[]
 }
 
+type UpdateOrderStatusParams = {
+  orderId: number
+  status: OrderStatus
+}
+
+async function updateOrderStatus({
+  orderId,
+  status,
+}: UpdateOrderStatusParams): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', orderId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+function useUpdateOrderStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updateOrderStatus,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+    },
+  })
+}
+
 function normalizeItems(items: unknown): OrderItem[] {
   if (Array.isArray(items)) {
     return items as OrderItem[]
@@ -104,11 +146,16 @@ function formatPrice(value: number | null | undefined) {
     return '-'
   }
 
-  return `${value.toFixed(2)} zł`
+  return `$${value.toFixed(2)}`
+}
+
+function getOrderStatus(order: Order): OrderStatus {
+  return order.status ?? 'pending'
 }
 
 export function Orders() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const updateOrderStatusMutation = useUpdateOrderStatus()
 
   const {
     data: orders = [],
@@ -119,6 +166,18 @@ export function Orders() {
     queryKey: ['orders'],
     queryFn: getOrders,
   })
+
+  async function handleChangeOrderStatus(orderId: number, status: OrderStatus) {
+    try {
+      await updateOrderStatusMutation.mutateAsync({ orderId, status })
+      toast.success('Order status updated successfully')
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update order status'
+
+      toast.error(message)
+    }
+  }
 
   return (
     <>
@@ -205,9 +264,23 @@ export function Orders() {
                       <td className='px-4 py-3'>{formatPrice(order.total)}</td>
 
                       <td className='px-4 py-3'>
-                        <span className='rounded-md bg-muted px-2 py-1'>
-                          {order.status ?? 'pending'}
-                        </span>
+                        <select
+                          value={getOrderStatus(order)}
+                          disabled={updateOrderStatusMutation.isPending}
+                          onChange={(event) =>
+                            handleChangeOrderStatus(
+                              order.id,
+                              event.target.value as OrderStatus
+                            )
+                          }
+                          className='rounded-md border bg-background px-2 py-1 text-sm'
+                        >
+                          {orderStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
                       </td>
 
                       <td className='px-4 py-3'>
